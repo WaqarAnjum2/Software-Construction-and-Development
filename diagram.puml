@@ -1,0 +1,369 @@
+@startuml Online_Food_Ordering_System
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam ArrowFontSize 11
+skinparam linetype ortho
+
+' ─────────────────────────────────────────
+'  LEGEND
+'  --|>   Generalization (Inheritance)
+'  *-->   Composition
+'  o-->   Aggregation
+'  -->    Dependency / Association
+' ─────────────────────────────────────────
+
+' ══════════════════════════════════════════
+'  PERSON HIERARCHY  (Generalization)
+' ══════════════════════════════════════════
+
+abstract class Person {
+  - personId : String
+  - name     : String
+  - email    : String
+  - phone    : String
+  + getPersonId() : String
+  + getName()     : String
+  + getEmail()    : String
+  + getPhone()    : String
+  + setName(name : String)
+  + setEmail(email : String)
+  + setPhone(phone : String)
+  + {abstract} displayProfile()
+}
+
+class Customer {
+  - cart         : Cart
+  - orderHistory : List<Order>
+  + getCart() : Cart
+  + addToCart(item : MenuItem, qty : int, customizations : List<Customization>)
+  + applyPromoCode(code : String)
+  + placeDeliveryOrder(address : Address, payment : Payment) : Order
+  + placePickupOrder(location : String, payment : Payment) : Order
+  + getOrderHistory() : List<Order>
+  + displayProfile()
+}
+
+class DeliveryDriver {
+  - vehicleType     : String
+  - isAvailable     : boolean
+  - currentLocation : String
+  + getVehicleType()      : String
+  + isAvailable()         : boolean
+  + getCurrentLocation()  : String
+  + assignDelivery(order : DeliveryOrder)
+  + completeDelivery()
+  + displayProfile()
+}
+
+Person  <|--  Customer        : <<Generalization>>
+Person  <|--  DeliveryDriver  : <<Generalization>>
+
+
+' ══════════════════════════════════════════
+'  MENU HIERARCHY  (Aggregation chain)
+' ══════════════════════════════════════════
+
+class Menu {
+  - menuId         : String
+  - restaurantName : String
+  + getMenuId()          : String
+  + getRestaurantName()  : String
+  + addCategory(category : Category)
+  + getCategories()      : List<Category>
+  + findCategoryByName(name : String) : Category
+  + findItemById(itemId : String)     : MenuItem
+  + displayFullMenu()
+}
+
+class Category {
+  - categoryId   : String
+  - categoryName : String
+  + getCategoryId()    : String
+  + getCategoryName()  : String
+  + addMenuItem(item : MenuItem)
+  + removeMenuItem(item : MenuItem)
+  + getMenuItems()       : List<MenuItem>
+  + getAvailableItems()  : List<MenuItem>
+  + display()
+}
+
+class MenuItem {
+  - itemId      : String
+  - name        : String
+  - description : String
+  - basePrice   : double
+  - isAvailable : boolean
+  + getItemId()       : String
+  + getName()         : String
+  + getDescription()  : String
+  + getBasePrice()    : double
+  + isAvailable()     : boolean
+  + addCustomization(c : Customization)
+  + getAvailableCustomizations() : List<Customization>
+  + setAvailable(available : boolean)
+  + display()
+}
+
+class Customization {
+  - customizationId : String
+  - name            : String
+  - additionalCost  : double
+  + getCustomizationId() : String
+  + getName()            : String
+  + getAdditionalCost()  : double
+  + toString()           : String
+}
+
+Menu     "1" o--> "many" Category     : aggregation\n(categories)
+Category "1" o--> "many" MenuItem     : aggregation\n(menuItems)
+MenuItem "1" o--> "many" Customization : aggregation\n(availableCustomizations)
+
+
+' ══════════════════════════════════════════
+'  CART  (Composition + Aggregation)
+' ══════════════════════════════════════════
+
+class Cart {
+  - customer        : Customer
+  - items           : List<CartItem>
+  - appliedPromoCode : PromoCode
+  + addItem(menuItem : MenuItem, qty : int, customizations : List<Customization>)
+  + removeItem(menuItem : MenuItem)
+  + clear()
+  + applyPromoCode(promoCode : PromoCode)
+  + getSubtotal()   : double
+  + getDiscount()   : double
+  + getTotalPrice() : double
+  + isEmpty()       : boolean
+  + getItems()      : List<CartItem>
+  + displayCart()
+}
+
+class CartItem {
+  - menuItem       : MenuItem
+  - quantity       : int
+  - customizations : List<Customization>
+  - unitPrice      : double
+  + getMenuItem()       : MenuItem
+  + getQuantity()       : int
+  + getCustomizations() : List<Customization>
+  + getUnitPrice()      : double
+  + getSubtotal()       : double
+  + setQuantity(qty : int)
+  + display()
+}
+
+class PromoCode {
+  - code            : String
+  - discountPercent : double
+  - expiryDate      : LocalDate
+  - usageLimit      : int
+  - usageCount      : int
+  + getCode()            : String
+  + getDiscountPercent() : double
+  + getExpiryDate()      : LocalDate
+  + isValid()            : boolean
+  + redeem()
+  + toString()           : String
+}
+
+' Customer AGGREGATES Cart (Cart was created by customer but can outlive an interaction)
+Customer "1" o--> "1"    Cart     : aggregation\n(cart)
+
+' Cart COMPOSES CartItem (CartItem is destroyed when Cart is cleared)
+Cart     "1" *--> "many" CartItem : composition\n(items)
+
+' Cart AGGREGATES PromoCode (PromoCode exists independently)
+Cart     "0..1" o--> "0..1" PromoCode : aggregation\n(appliedPromoCode)
+
+' CartItem references MenuItem (Aggregation — item lives in Menu)
+CartItem  o-->  MenuItem      : aggregation\n(menuItem)
+
+
+' ══════════════════════════════════════════
+'  PAYMENT
+' ══════════════════════════════════════════
+
+class Payment {
+  - paymentId     : String
+  - method        : PaymentMethod
+  - amount        : double
+  - status        : PaymentStatus
+  - transactionRef : String
+  + getPaymentId()      : String
+  + getMethod()         : PaymentMethod
+  + getAmount()         : double
+  + getStatus()         : PaymentStatus
+  + getTransactionRef() : String
+  + processPayment()    : boolean
+  + refund()
+  + toString()          : String
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH_ON_DELIVERY
+  DIGITAL_WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+Payment --> PaymentMethod : uses
+Payment --> PaymentStatus : uses
+
+
+' ══════════════════════════════════════════
+'  ADDRESS
+' ══════════════════════════════════════════
+
+class Address {
+  - street  : String
+  - city    : String
+  - state   : String
+  - zipCode : String
+  + getStreet()  : String
+  + getCity()    : String
+  + getState()   : String
+  + getZipCode() : String
+  + toString()   : String
+}
+
+
+' ══════════════════════════════════════════
+'  ORDER HIERARCHY  (Generalization + Composition + Aggregation)
+' ══════════════════════════════════════════
+
+abstract class Order {
+  - orderId     : String
+  - customer    : Customer
+  - orderItems  : List<OrderItem>
+  - payment     : Payment
+  - totalAmount : double
+  - status      : OrderStatus
+  - placedAt    : LocalDateTime
+  + getOrderId()     : String
+  + getCustomer()    : Customer
+  + getOrderItems()  : List<OrderItem>
+  + getPayment()     : Payment
+  + getTotalAmount() : double
+  + getStatus()      : OrderStatus
+  + getPlacedAt()    : LocalDateTime
+  + setStatus(status : OrderStatus)
+  + cancelOrder()
+  + {abstract} getFulfillmentDetails() : String
+  + displayOrder()
+}
+
+class OrderItem {
+  - itemName       : String
+  - quantity       : int
+  - unitPrice      : double
+  - subtotal       : double
+  - customizations : List<Customization>
+  + getItemName()    : String
+  + getQuantity()    : int
+  + getUnitPrice()   : double
+  + getSubtotal()    : double
+  + display()
+}
+
+class DeliveryOrder {
+  - deliveryAddress       : Address
+  - estimatedDeliveryTime : String
+  - assignedDriver        : DeliveryDriver
+  + getDeliveryAddress()       : Address
+  + getEstimatedDeliveryTime() : String
+  + getAssignedDriver()        : DeliveryDriver
+  + assignDriver(driver : DeliveryDriver)
+  + getFulfillmentDetails()    : String
+}
+
+class PickupOrder {
+  - pickupLocation : String
+  - pickupCode     : String
+  + getPickupLocation()     : String
+  + getPickupCode()         : String
+  + getFulfillmentDetails() : String
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+Order        <|--  DeliveryOrder  : <<Generalization>>
+Order        <|--  PickupOrder    : <<Generalization>>
+
+' Order COMPOSES OrderItem (OrderItem has no life outside its Order)
+Order        "1"    *--> "many"  OrderItem     : composition\n(orderItems)
+
+' Order AGGREGATES Customer & Payment (they exist independently)
+Order        "many" o-->  "1"    Customer      : aggregation\n(customer)
+Order        "1"    o-->  "1"    Payment       : aggregation\n(payment)
+Order        -->    OrderStatus                : uses
+
+' DeliveryOrder COMPOSES Address (Address is tightly bound to this order)
+DeliveryOrder "1" *--> "1" Address             : composition\n(deliveryAddress)
+
+' DeliveryOrder AGGREGATES DeliveryDriver (driver is independent)
+DeliveryOrder "many" o--> "0..1" DeliveryDriver : aggregation\n(assignedDriver)
+
+
+' ══════════════════════════════════════════
+'  NOTIFICATION HIERARCHY  (Generalization)
+' ══════════════════════════════════════════
+
+abstract class Notification {
+  - notificationId  : String
+  - recipientEmail  : String
+  - subject         : String
+  - body            : String
+  - sent            : boolean
+  + getNotificationId()  : String
+  + getRecipientEmail()  : String
+  + getSubject()         : String
+  + getBody()            : String
+  + isSent()             : boolean
+  # markSent()
+  + {abstract} send()
+}
+
+class EmailNotification {
+  - senderEmail : String
+  + send()
+}
+
+class OrderConfirmation {
+  - order : Order
+  + sendConfirmationEmail()
+}
+
+Notification   <|--  EmailNotification  : <<Generalization>>
+
+' OrderConfirmation AGGREGATES Order (Order exists independently)
+OrderConfirmation  "1" o--> "1" Order             : aggregation\n(order)
+
+' OrderConfirmation creates EmailNotification (Dependency)
+OrderConfirmation  ..>  EmailNotification          : <<creates>>
+
+
+' ══════════════════════════════════════════
+'  CUSTOMER → placeOrder dependencies
+' ══════════════════════════════════════════
+Customer ..> Address        : <<uses>>
+Customer ..> Payment        : <<uses>>
+Customer ..> DeliveryOrder  : <<creates>>
+Customer ..> PickupOrder    : <<creates>>
+
+@enduml
